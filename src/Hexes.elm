@@ -58,10 +58,10 @@ permutedHex cache zPos table ( posX, posY ) h attrs children =
                 ++ (String.fromFloat <| 0.15)
                 ++ ")"
 
-        points_ =
+        ( pointsString, newCache ) =
             List.range 0 5
-                |> List.map
-                    (\n ->
+                |> List.foldl
+                    (\n ( acc, cacheAcc ) ->
                         let
                             angle =
                                 toFloat n * (2 * pi / 6)
@@ -75,31 +75,36 @@ permutedHex cache zPos table ( posX, posY ) h attrs children =
                                         y =
                                             (y_ + posY) * scale
 
-                                        noised =
-                                            noise3d table x y zPos * pi
+                                        ( noised, store ) =
+                                            case Dict.get (x, y) cacheAcc of
+                                                Just v ->
+                                                    (v, cacheAcc)
+                                                Nothing ->
+                                                    let v = noise3d table x y zPos * pi
+                                                    in
+                                                        (v, Dict.insert (x, y) v cacheAcc)
                                     in
-                                    ( x_ + cos noised * strength
-                                    , y_ + sin noised * strength
+                                    ( acc
+                                        ++ " "
+                                        ++ String.fromFloat (x_ + cos noised * strength)
+                                        ++ ","
+                                        ++ String.fromFloat (y_ + sin noised * strength)
+                                    , store
                                     )
                                )
-                            |> (\( x, y ) ->
-                                    String.fromFloat x
-                                        ++ ","
-                                        ++ String.fromFloat y
-                               )
                     )
-                |> String.join " "
+                    ( "", cache )
     in
     ( polygon
         (attrs
             ++ [ class "hex"
-               , points points_
+               , points pointsString
                , fill colour
                , stroke colour
                ]
         )
         children
-    , cache
+    , newCache
     )
 
 
