@@ -1,10 +1,15 @@
 module Hexes exposing (hexPoints, permutedHex, permutedHexGrid, squareTransform, stringFromTuple)
 
+import Dict exposing (Dict)
 import Noise exposing (..)
 import Svg exposing (..)
 import Svg.Attributes exposing (..)
 import Svg.Events
 import Types exposing (..)
+
+
+type alias Cache =
+    Dict ( Float, Float ) Float
 
 
 hexPoints : (( Float, Float ) -> ( Float, Float )) -> Float -> String
@@ -27,53 +32,59 @@ hexPoints transformPoints h =
         |> String.join " "
 
 
-permutedHex : Float -> PermutationTable -> ( Float, Float ) -> Float -> List (Svg.Attribute msg) -> List (Svg msg) -> Svg msg
-permutedHex zPos table ( posX, posY ) h attrs children =
+permutedHex : Cache -> Float -> PermutationTable -> ( Float, Float ) -> Float -> List (Svg.Attribute msg) -> List (Svg msg) -> ( Svg msg, Cache )
+permutedHex cache zPos table ( posX, posY ) h attrs children =
     let
         scale =
-            0.002
+            0.0015
 
         strength =
             h
+
+        colour =
+            let
+                noise =
+                    noise3d table (posX * scale) (posY * scale) zPos
+
+                shade =
+                    128 |> String.fromInt
+            in
+            "hsla("
+                ++ (String.fromFloat <| noise * pi * 0.4 * 57.29 - 30)
+                ++ ", 70%, 50%, "
+                ++ (String.fromFloat <| 0.5)
+                ++ ")"
+
+        points_ =
+            hexPoints
+                (\( x_, y_ ) ->
+                    let
+                        x =
+                            (x_ + posX) * scale
+
+                        y =
+                            (y_ + posY) * scale
+
+                        angle =
+                            noise3d table x y zPos * pi
+                    in
+                    ( x_ + cos angle * strength
+                    , y_ + sin angle * strength
+                    )
+                )
+                h
     in
-    polygon
+    ( polygon
         (attrs
             ++ [ class "hex"
-               , points <|
-                    hexPoints
-                        (\( x_, y_ ) ->
-                            let
-                                x =
-                                    (x_ + posX) * scale
-
-                                y =
-                                    (y_ + posY) * scale
-
-                                angle =
-                                    noise3d table x y zPos * pi
-                            in
-                            ( x_ + cos angle * strength
-                            , y_ + sin angle * strength
-                            )
-                        )
-                        h
-               , fill <|
-                    let
-                        noise =
-                            noise3d table ((posX + h / 2) * scale) ((posY + h / 2) * scale) zPos
-
-                        shade =
-                            128 |> String.fromInt
-                    in
-                    "hsla("
-                        ++ (String.fromFloat <| noise * pi * 57.29)
-                        ++ ", 70%, 50%, "
-                        ++ (String.fromFloat <| 0.5)
-                        ++ ")"
-               , stroke "#222"
+               , points points_
+               , fill colour
+               , stroke colour
                ]
         )
         children
+    , cache
+    )
 
 
 squareTransform : Float -> Int -> Int -> ( Float, Float )
@@ -111,7 +122,7 @@ permutedHexGrid : Float -> PermutationTable -> Int -> Svg msg
 permutedHexGrid zPos table cellsAcross_ =
     let
         cellsAcross =
-            28
+            30
 
         tilesize =
             50
@@ -122,24 +133,41 @@ permutedHexGrid zPos table cellsAcross_ =
     List.range 1 cellsAcross
         |> List.concatMap
             (\y ->
-                List.range 1 cellsAcross
-                    |> List.map
-                        (\x ->
-                            g
-                                [ transform <|
-                                    "translate"
-                                        ++ (stringFromTuple <| squareTransform tilesize (x - 1) (y - 1))
-                                ]
-                            <|
-                                [ permutedHex
+                List.foldl
+                    (\x ( acc, cache ) ->
+                        let
+                            transformed =
+                                squareTransform tilesize (x - 1) (y - 1)
+
+                            ( element, newCache ) =
+                                permutedHex
+                                    cache
                                     zPos
                                     table
-                                    (squareTransform tilesize (x - 1) (y - 1))
+                                    transformed
                                     tilesize
                                     []
                                     []
-                                ]
+                        in
+                        ( acc
+                            ++ [ g
+                                    [ transform <|
+                                        "translate"
+                                            ++ stringFromTuple transformed
+                                    ]
+                                 <|
+                                    [ element
+                                    ]
+                               ]
+                        , newCache
                         )
+                    )
+                    ( [], Dict.empty )
+                    (List.range
+                        1
+                        cellsAcross
+                    )
+                    |> Tuple.first
             )
         |> svg
             [ Svg.Attributes.class "grid-container"
