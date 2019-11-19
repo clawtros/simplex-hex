@@ -14,22 +14,25 @@ type alias Cache =
 
 hexPoints : (( Float, Float ) -> ( Float, Float )) -> Float -> String
 hexPoints transformPoints h =
-    List.range 0 5
-        |> List.map
-            (\n -> toFloat n * (2 * pi / 6))
-        |> List.map
-            (\n -> ( sin n, cos n ))
-        |> List.map
-            (\( x_, y_ ) ->
-                let
-                    ( x, y ) =
-                        transformPoints ( x_ * h / 2, y_ * h / 2 )
-                in
-                String.fromFloat x
-                    ++ ","
-                    ++ String.fromFloat y
-            )
-        |> String.join " "
+    ""
+
+
+
+-- List.range 0 5
+--     |> List.map
+--         (\n ->
+--             let
+--                 angle =
+--                     toFloat n * (2 * pi / 6)
+--             in
+--             transformPoints ( sin angle * h / 2, cos angle * h / 2 )
+--                 |> (\( x, y ) ->
+--                         String.fromFloat x
+--                             ++ ","
+--                             ++ String.fromFloat y
+--                    )
+--         )
+--     |> String.join " "
 
 
 permutedHex : Cache -> Float -> PermutationTable -> ( Float, Float ) -> Float -> List (Svg.Attribute msg) -> List (Svg msg) -> ( Svg msg, Cache )
@@ -51,28 +54,41 @@ permutedHex cache zPos table ( posX, posY ) h attrs children =
             in
             "hsla("
                 ++ (String.fromFloat <| noise * pi * 0.4 * 57.29 - 30)
-                ++ ", 70%, 50%, "
-                ++ (String.fromFloat <| 0.5)
+                ++ ", 90%, 50%, "
+                ++ (String.fromFloat <| 0.15)
                 ++ ")"
 
         points_ =
-            hexPoints
-                (\( x_, y_ ) ->
-                    let
-                        x =
-                            (x_ + posX) * scale
+            List.range 0 5
+                |> List.map
+                    (\n ->
+                        let
+                            angle =
+                                toFloat n * (2 * pi / 6)
+                        in
+                        ( sin angle * h / 2, cos angle * h / 2 )
+                            |> (\( x_, y_ ) ->
+                                    let
+                                        x =
+                                            (x_ + posX) * scale
 
-                        y =
-                            (y_ + posY) * scale
+                                        y =
+                                            (y_ + posY) * scale
 
-                        angle =
-                            noise3d table x y zPos * pi
-                    in
-                    ( x_ + cos angle * strength
-                    , y_ + sin angle * strength
+                                        noised =
+                                            noise3d table x y zPos * pi
+                                    in
+                                    ( x_ + cos noised * strength
+                                    , y_ + sin noised * strength
+                                    )
+                               )
+                            |> (\( x, y ) ->
+                                    String.fromFloat x
+                                        ++ ","
+                                        ++ String.fromFloat y
+                               )
                     )
-                )
-                h
+                |> String.join " "
     in
     ( polygon
         (attrs
