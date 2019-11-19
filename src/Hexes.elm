@@ -44,20 +44,6 @@ permutedHex cache zPos table ( posX, posY ) h attrs children =
         strength =
             h
 
-        colour =
-            let
-                noise =
-                    noise3d table (posX * scale) (posY * scale) zPos
-
-                shade =
-                    128 |> String.fromInt
-            in
-            "hsla("
-                ++ (String.fromFloat <| noise * pi * 0.4 * 57.29 - 30)
-                ++ ", 90%, 50%, "
-                ++ (String.fromFloat <| 0.15)
-                ++ ")"
-
         ( pointsString, newCache ) =
             List.range 0 5
                 |> List.foldl
@@ -76,13 +62,16 @@ permutedHex cache zPos table ( posX, posY ) h attrs children =
                                             (y_ + posY) * scale
 
                                         ( noised, store ) =
-                                            case Dict.get (x, y) cacheAcc of
+                                            case Dict.get ( x, y ) cacheAcc of
                                                 Just v ->
-                                                    (v, cacheAcc)
+                                                    ( v, cacheAcc )
+
                                                 Nothing ->
-                                                    let v = noise3d table x y zPos * pi
+                                                    let
+                                                        v =
+                                                            noise3d table x y zPos * pi
                                                     in
-                                                        (v, Dict.insert (x, y) v cacheAcc)
+                                                    ( v, Dict.insert ( x, y ) v cacheAcc )
                                     in
                                     ( acc
                                         ++ " "
@@ -99,8 +88,20 @@ permutedHex cache zPos table ( posX, posY ) h attrs children =
         (attrs
             ++ [ class "hex"
                , points pointsString
-               , fill colour
-               , stroke colour
+               , fill <|
+                    let
+                        noise =
+                            noise3d table ((posX + h / 2) * scale) ((posY + h / 2) * scale) zPos
+
+                        shade =
+                            128 |> String.fromInt
+                    in
+                    "hsla("
+                        ++ (String.fromFloat <| noise * pi * 57.29)
+                        ++ ", 70%, 50%, "
+                        ++ (String.fromFloat <| 0.5)
+                        ++ ")"
+               , stroke "#222"
                ]
         )
         children
@@ -143,7 +144,7 @@ permutedHexGrid : Float -> PermutationTable -> Int -> Svg msg
 permutedHexGrid zPos table cellsAcross_ =
     let
         cellsAcross =
-            30
+            28
 
         tilesize =
             50
