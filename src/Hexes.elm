@@ -8,10 +8,6 @@ import Svg.Events
 import Types exposing (..)
 
 
-type alias Cache =
-    Dict ( Float, Float ) Float
-
-
 hexPoints : (( Float, Float ) -> ( Float, Float )) -> Float -> String
 hexPoints transformPoints h =
     ""
@@ -35,8 +31,8 @@ hexPoints transformPoints h =
 --     |> String.join " "
 
 
-permutedHex : Cache -> Float -> PermutationTable -> ( Float, Float ) -> Float -> List (Svg.Attribute msg) -> List (Svg msg) -> ( Svg msg, Cache )
-permutedHex cache zPos table ( posX, posY ) h attrs children =
+permutedHex : Float -> PermutationTable -> ( Float, Float ) -> Float -> List (Svg.Attribute msg) -> List (Svg msg) -> Svg msg
+permutedHex zPos table ( posX, posY ) h attrs children =
     let
         scale =
             0.0015
@@ -44,10 +40,10 @@ permutedHex cache zPos table ( posX, posY ) h attrs children =
         strength =
             h
 
-        ( pointsString, newCache ) =
+        pointsString =
             List.range 0 5
-                |> List.foldl
-                    (\n ( acc, cacheAcc ) ->
+                |> List.map
+                    (\n ->
                         let
                             angle =
                                 toFloat n * (2 * pi / 6)
@@ -61,52 +57,40 @@ permutedHex cache zPos table ( posX, posY ) h attrs children =
                                         y =
                                             (y_ + posY) * scale
 
-                                        ( noised, store ) =
-                                            case Dict.get ( x, y ) cacheAcc of
-                                                Just v ->
-                                                    ( v, cacheAcc )
-
-                                                Nothing ->
-                                                    let
-                                                        v =
-                                                            noise3d table x y zPos * pi
-                                                    in
-                                                    ( v, Dict.insert ( x, y ) v cacheAcc )
+                                        noised =
+                                            noise3d table x y zPos * pi * 2
                                     in
-                                    ( acc
-                                        ++ " "
-                                        ++ String.fromFloat (x_ + cos noised * strength)
+                                    String.fromFloat (x_ + cos noised * strength)
                                         ++ ","
                                         ++ String.fromFloat (y_ + sin noised * strength)
-                                    , store
-                                    )
                                )
                     )
-                    ( "", cache )
-    in
-    ( polygon
-        (attrs
-            ++ [ class "hex"
-               , points pointsString
-               , fill <|
-                    let
-                        noise =
-                            noise3d table ((posX + h / 2) * scale) ((posY + h / 2) * scale) zPos
+                |> String.join " "
 
-                        shade =
-                            128 |> String.fromInt
-                    in
-                    "hsla("
-                        ++ (String.fromFloat <| noise * pi * 57.29)
-                        ++ ", 70%, 50%, "
-                        ++ (String.fromFloat <| 0.5)
-                        ++ ")"
-               , stroke "#222"
-               ]
-        )
-        children
-    , newCache
-    )
+        noise =
+            noise3d table ((posX + h / 2) * scale) ((posY + h / 2) * scale) zPos
+
+        x0 =
+            cos (noise * pi) * strength
+
+        y0 =
+            sin (noise * pi) * strength
+    in
+    g []
+        [ polygon
+            (attrs
+                ++ [ class "hex"
+                   , points pointsString
+                   , fill <|
+                        "hsla("
+                            ++ (String.fromFloat <| noise * pi * 57.29)
+                            ++ ", 70%, 50%, "
+                            ++ (String.fromFloat <| 0.5)
+                            ++ ")"
+                   ]
+            )
+            []
+        ]
 
 
 squareTransform : Float -> Int -> Int -> ( Float, Float )
@@ -155,15 +139,14 @@ permutedHexGrid zPos table cellsAcross_ =
     List.range 1 cellsAcross
         |> List.concatMap
             (\y ->
-                List.foldl
-                    (\x ( acc, cache ) ->
+                List.map
+                    (\x ->
                         let
                             transformed =
                                 squareTransform tilesize (x - 1) (y - 1)
 
-                            ( element, newCache ) =
+                            element =
                                 permutedHex
-                                    cache
                                     zPos
                                     table
                                     transformed
@@ -171,25 +154,19 @@ permutedHexGrid zPos table cellsAcross_ =
                                     []
                                     []
                         in
-                        ( acc
-                            ++ [ g
-                                    [ transform <|
-                                        "translate"
-                                            ++ stringFromTuple transformed
-                                    ]
-                                 <|
-                                    [ element
-                                    ]
-                               ]
-                        , newCache
-                        )
+                        g
+                            [ transform <|
+                                "translate"
+                                    ++ stringFromTuple transformed
+                            ]
+                        <|
+                            [ element
+                            ]
                     )
-                    ( [], Dict.empty )
                     (List.range
                         1
                         cellsAcross
                     )
-                    |> Tuple.first
             )
         |> svg
             [ Svg.Attributes.class "grid-container"
