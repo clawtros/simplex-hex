@@ -1,4 +1,4 @@
-module Hexes exposing (permutedHex, permutedHexGrid, squareTransform, stringFromTuple)
+module Hexes exposing (GridOptions, defaultOptions, permutedHex, permutedHexGrid, squareTransform, stringFromTuple)
 
 import Noise exposing (..)
 import Svg exposing (..)
@@ -6,8 +6,26 @@ import Svg.Attributes exposing (..)
 import Types exposing (..)
 
 
-permutedHex : Float -> PermutationTable -> ( Float, Float ) -> Float -> Float -> Float -> Svg msg
-permutedHex zPos table ( posX, posY ) h scale strength =
+type alias GridOptions =
+    { strength : Float
+    , scale : Float
+    , cellsAcross : Int
+    , zPosition : Float
+    , table : PermutationTable
+    }
+
+
+defaultOptions : PermutationTable -> GridOptions
+defaultOptions table =
+    { strength = 50
+    , cellsAcross = 15
+    , scale = 0.002
+    , zPosition = 0
+    , table = table
+    }
+
+permutedHex : ( Float, Float ) -> Float -> GridOptions -> Svg msg
+permutedHex ( posX, posY ) h {scale, strength, zPosition, table} =
     let
         pointsString =
             List.range 0 5
@@ -27,7 +45,7 @@ permutedHex zPos table ( posX, posY ) h scale strength =
                                             (y_ + posY) * scale
 
                                         noised =
-                                            noise3d table x y zPos * pi * 2
+                                            noise3d table x y zPosition * pi * 2
                                     in
                                     String.fromFloat (x_ + cos noised * strength)
                                         ++ ","
@@ -37,7 +55,7 @@ permutedHex zPos table ( posX, posY ) h scale strength =
                 |> String.join " "
 
         noise =
-            noise3d table ((posX + h / 2) * scale) ((posY + h / 2) * scale) zPos
+            noise3d table ((posX + h / 2) * scale) ((posY + h / 2) * scale) zPosition
 
         colour =
             "hsla("
@@ -88,19 +106,16 @@ stringFromTuple ( a, b ) =
     "(" ++ String.fromFloat a ++ "," ++ String.fromFloat b ++ ")"
 
 
-permutedHexGrid : Float -> PermutationTable -> Int -> Float -> Svg msg
-permutedHexGrid zPos table cellsAcross scale =
+permutedHexGrid : GridOptions -> Svg msg
+permutedHexGrid gridOptions =
     let
         tilesize =
             50
 
-        strength =
-            tilesize
-
         ( height, width ) =
-            squareTransform tilesize cellsAcross cellsAcross
+            squareTransform tilesize gridOptions.cellsAcross gridOptions.cellsAcross
     in
-    List.range 1 cellsAcross
+    List.range 1 gridOptions.cellsAcross
         |> List.concatMap
             (\y ->
                 List.map
@@ -111,12 +126,9 @@ permutedHexGrid zPos table cellsAcross scale =
 
                             element =
                                 permutedHex
-                                    zPos
-                                    table
                                     transformed
                                     tilesize
-                                    scale
-                                    strength
+                                    gridOptions
                         in
                         g
                             [ transform <|
@@ -129,7 +141,7 @@ permutedHexGrid zPos table cellsAcross scale =
                     )
                     (List.range
                         1
-                        cellsAcross
+                        gridOptions.cellsAcross
                     )
             )
         |> svg
