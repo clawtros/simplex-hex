@@ -1,45 +1,14 @@
-module Hexes exposing (hexPoints, permutedHex, permutedHexGrid, squareTransform, stringFromTuple)
+module Hexes exposing (permutedHex, permutedHexGrid, squareTransform, stringFromTuple)
 
-import Dict exposing (Dict)
 import Noise exposing (..)
 import Svg exposing (..)
 import Svg.Attributes exposing (..)
-import Svg.Events
 import Types exposing (..)
 
 
-hexPoints : (( Float, Float ) -> ( Float, Float )) -> Float -> String
-hexPoints transformPoints h =
-    ""
-
-
-
--- List.range 0 5
---     |> List.map
---         (\n ->
---             let
---                 angle =
---                     toFloat n * (2 * pi / 6)
---             in
---             transformPoints ( sin angle * h / 2, cos angle * h / 2 )
---                 |> (\( x, y ) ->
---                         String.fromFloat x
---                             ++ ","
---                             ++ String.fromFloat y
---                    )
---         )
---     |> String.join " "
-
-
-permutedHex : Float -> PermutationTable -> ( Float, Float ) -> Float -> List (Svg.Attribute msg) -> List (Svg msg) -> Svg msg
-permutedHex zPos table ( posX, posY ) h attrs children =
+permutedHex : Float -> PermutationTable -> ( Float, Float ) -> Float -> Float -> Float -> Svg msg
+permutedHex zPos table ( posX, posY ) h scale strength =
     let
-        scale =
-            0.0015
-
-        strength =
-            h
-
         pointsString =
             List.range 0 5
                 |> List.map
@@ -70,25 +39,20 @@ permutedHex zPos table ( posX, posY ) h attrs children =
         noise =
             noise3d table ((posX + h / 2) * scale) ((posY + h / 2) * scale) zPos
 
-        x0 =
-            cos (noise * pi) * strength
-
-        y0 =
-            sin (noise * pi) * strength
+        colour =
+            "hsla("
+                ++ (String.fromFloat <| noise * pi * 57.29)
+                ++ ", 70%, 50%, "
+                ++ (String.fromFloat <| 0.5)
+                ++ ")"
     in
     g []
         [ polygon
-            (attrs
-                ++ [ class "hex"
-                   , points pointsString
-                   , fill <|
-                        "hsla("
-                            ++ (String.fromFloat <| noise * pi * 57.29)
-                            ++ ", 70%, 50%, "
-                            ++ (String.fromFloat <| 0.5)
-                            ++ ")"
-                   ]
-            )
+            [ class "hex"
+            , points pointsString
+            , fill colour
+            , stroke colour
+            ]
             []
         ]
 
@@ -124,14 +88,14 @@ stringFromTuple ( a, b ) =
     "(" ++ String.fromFloat a ++ "," ++ String.fromFloat b ++ ")"
 
 
-permutedHexGrid : Float -> PermutationTable -> Int -> Svg msg
-permutedHexGrid zPos table cellsAcross_ =
+permutedHexGrid : Float -> PermutationTable -> Int -> Float -> Svg msg
+permutedHexGrid zPos table cellsAcross scale =
     let
-        cellsAcross =
-            28
-
         tilesize =
             50
+
+        strength =
+            tilesize
 
         ( height, width ) =
             squareTransform tilesize cellsAcross cellsAcross
@@ -151,8 +115,8 @@ permutedHexGrid zPos table cellsAcross_ =
                                     table
                                     transformed
                                     tilesize
-                                    []
-                                    []
+                                    scale
+                                    strength
                         in
                         g
                             [ transform <|
