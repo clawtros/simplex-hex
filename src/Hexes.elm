@@ -12,6 +12,7 @@ type alias GridOptions =
     , cellsAcross : Int
     , zPosition : Float
     , table : PermutationTable
+    , speed : Float
     }
 
 
@@ -21,6 +22,7 @@ defaultOptions table =
     , cellsAcross = 15
     , scale = 0.002
     , zPosition = 0
+    , speed = 0.01
     , table = table
     }
 

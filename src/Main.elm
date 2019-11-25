@@ -3,81 +3,104 @@ module Main exposing (..)
 import Browser
 import Hexes
 import Html exposing (div, input, text)
-import Html.Attributes as HA exposing (style, type_, value)
+import Html.Attributes as HA exposing (style, type_)
 import Html.Events exposing (onInput)
+import Json.Decode as D
+import Json.Encode as E
 import Noise exposing (noise3d, permutationTable)
 import Random exposing (initialSeed)
 import Time
 
 
 type Msg
-    = Update (Hexes.GridOptions -> Hexes.GridOptions)
+    = Update Hexes.GridOptions
     | Next
     | NoOp
 
 
+type alias Range =
+    { min : Float
+    , max : Float
+    , step : Float
+    }
+
+
+viewRangeInput : { name : String, range : Range, decoder : D.Decoder a, update : a -> Hexes.GridOptions, value : String } -> Html.Html Msg
+viewRangeInput { name, range, decoder, update, value } =
+    div []
+        [ input
+            [ type_ "range"
+            , HA.value value
+            , HA.min <| String.fromFloat range.min
+            , HA.max <| String.fromFloat range.max
+            , HA.step <| String.fromFloat range.step
+            , onInput <|
+                \val ->
+                    D.decodeString decoder val
+                        |> Result.map
+                            (\number -> Update <| update number)
+                        |> Result.withDefault NoOp
+            ]
+            []
+        , text <| name ++ " (" ++ value ++ ")"
+        ]
+
+
+viewControls : Hexes.GridOptions -> Html.Html Msg
 viewControls model =
     div
         [ style "position" "absolute"
         , style "top" "0"
         ]
-        [ div []
-            [ input
-                [ type_ "range"
-                , value <| String.fromFloat model.scale
-                , HA.min "0.000001"
-                , HA.max "0.005"
-                , HA.step "0.00001"
-                , onInput <|
-                    \val ->
-                        String.toFloat val
-                            |> Maybe.map
-                                (\number -> Update (\options -> { options | scale = number }))
-                            |> Maybe.withDefault NoOp
-                ]
-                []
-            , text <| "Scale (" ++ (String.fromFloat model.scale) ++ ")"
-            ]
-              
-        , div []
-            [ input
-                [ type_ "range"
-                , value <| String.fromFloat model.strength
-                , HA.min "0"
-                , HA.max "200"
-                , HA.step "1"
-                , onInput <|
-                    \val ->
-                        String.toFloat val
-                            |> Maybe.map
-                                (\number -> Update (\options -> { options | strength = number }))
-                            |> Maybe.withDefault NoOp
-                ]
-                []
-            , text <| "Strength (" ++ (String.fromFloat model.strength) ++ ")"
-            ]
-        , div []
-            [ input
-                [ type_ "range"
-                , value <| String.fromInt model.cellsAcross
-                , HA.min "0"
-                , HA.max "50"
-                , HA.step "1"
-                , onInput <|
-                    \val ->
-                        String.toInt val
-                            |> Maybe.map
-                                (\number -> Update (\options -> { options | cellsAcross = number }))
-                            |> Maybe.withDefault NoOp
-                ]
-                []
-            , text <| "Cells (" ++ (String.fromInt model.cellsAcross) ++ ")"
-            ]
+        [ viewRangeInput
+            { range =
+                { min = 0.000001
+                , max = 0.009
+                , step = 0.00001
+                }
+            , name = "Scale"
+            , value = String.fromFloat <| model.scale
+            , update = \newVal -> { model | scale = newVal }
+            , decoder = D.float
+            }
+        , viewRangeInput
+            { range =
+                { min = 1
+                , max = 200
+                , step = 1
+                }
+            , name = "Strength"
+            , value = String.fromFloat <| model.strength
+            , update = \newVal -> { model | strength = newVal }
+            , decoder = D.float
+            }
+        , viewRangeInput
+            { range =
+                { min = 1
+                , max = 50
+                , step = 1
+                }
+            , name = "Cells"
+            , value = String.fromInt <| model.cellsAcross
+            , update = \newVal -> { model | cellsAcross = newVal }
+            , decoder = D.int
+            }
+        , viewRangeInput
+            { range =
+                { min = 0
+                , max = 0.05
+                , step = 0.001
+                }
+            , name = "Speed"
+            , value = String.fromFloat <| model.speed
+            , update = \newVal -> { model | speed = newVal }
+            , decoder = D.float
+            }
         ]
 
 
 view model =
-    div [ ]
+    div []
         [ Hexes.permutedHexGrid model
         , viewControls model
         ]
@@ -86,7 +109,7 @@ view model =
 main : Program () Hexes.GridOptions Msg
 main =
     let
-        ( table, seed ) =
+        ( table, _ ) =
             permutationTable (initialSeed 19)
     in
     Browser.element
@@ -95,13 +118,13 @@ main =
         , update =
             \msg model ->
                 case msg of
-                    Update update_ ->
-                        ( update_ model
+                    Update newOpts ->
+                        ( newOpts
                         , Cmd.none
                         )
 
                     Next ->
-                        ( { model | zPosition = model.zPosition + 0.01 }, Cmd.none )
+                        ( { model | zPosition = model.zPosition + model.speed }, Cmd.none )
 
                     NoOp ->
                         ( model, Cmd.none )
