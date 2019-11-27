@@ -4,10 +4,9 @@ import Browser
 import Hexes
 import Html exposing (div, input, text)
 import Html.Attributes as HA exposing (style, type_)
-import Html.Events exposing (onInput)
+import Html.Events exposing (onCheck, onInput)
 import Json.Decode as D
-import Json.Encode as E
-import Noise exposing (noise3d, permutationTable)
+import Noise exposing (permutationTable)
 import Random exposing (initialSeed)
 import Time
 
@@ -25,9 +24,9 @@ type alias Range =
     }
 
 
-viewRangeInput : { name : String, range : Range, decoder : D.Decoder a, update : a -> Hexes.GridOptions, value : String } -> Html.Html Msg
-viewRangeInput { name, range, decoder, update, value } =
-    div []
+rangeInput : { name : String, range : Range, decoder : D.Decoder a, update : a -> Hexes.GridOptions, value : String } -> Html.Html Msg
+rangeInput { name, range, decoder, update, value } =
+    div [ style "line-height" "1.5", style "display" "flex" ]
         [ input
             [ type_ "range"
             , HA.value value
@@ -42,7 +41,22 @@ viewRangeInput { name, range, decoder, update, value } =
                         |> Result.withDefault NoOp
             ]
             []
-        , text <| name ++ " (" ++ value ++ ")"
+        , Html.label [ style "margin-left" "1ch"] [ text <| name ++ " (" ++ value ++ ")" ]
+        ]
+
+
+boolInput : { name : String, value : Bool, update : Bool -> Hexes.GridOptions } -> Html.Html Msg
+boolInput { name, value, update } =
+    div [ style "line-height" "1.5", style "display" "flex" ]
+        [ Html.label []
+            [ input
+                [ type_ "checkbox"
+                , HA.checked value
+                , onCheck <| \newVal -> Update <| update newVal
+                ]
+                []
+            , text name
+            ]
         ]
 
 
@@ -52,10 +66,10 @@ viewControls model =
         [ style "position" "absolute"
         , style "top" "0"
         ]
-        [ viewRangeInput
+        [ rangeInput
             { range =
                 { min = 0.000001
-                , max = 0.009
+                , max = 0.005
                 , step = 0.00001
                 }
             , name = "Scale"
@@ -63,10 +77,10 @@ viewControls model =
             , update = \newVal -> { model | scale = newVal }
             , decoder = D.float
             }
-        , viewRangeInput
+        , rangeInput
             { range =
                 { min = 1
-                , max = 200
+                , max = 500
                 , step = 1
                 }
             , name = "Strength"
@@ -74,7 +88,7 @@ viewControls model =
             , update = \newVal -> { model | strength = newVal }
             , decoder = D.float
             }
-        , viewRangeInput
+        , rangeInput
             { range =
                 { min = 1
                 , max = 50
@@ -85,16 +99,21 @@ viewControls model =
             , update = \newVal -> { model | cellsAcross = newVal }
             , decoder = D.int
             }
-        , viewRangeInput
+        , rangeInput
             { range =
                 { min = 0
-                , max = 0.05
-                , step = 0.001
+                , max = 0.02
+                , step = 0.0001
                 }
             , name = "Speed"
             , value = String.fromFloat <| model.speed
             , update = \newVal -> { model | speed = newVal }
             , decoder = D.float
+            }
+        , boolInput
+            { name = "Not a wireframe"
+            , value = model.colourized
+            , update = \newVal -> { model | colourized = newVal }
             }
         ]
 
@@ -128,5 +147,5 @@ main =
 
                     NoOp ->
                         ( model, Cmd.none )
-        , subscriptions = \model -> Time.every 33 <| always Next
+        , subscriptions = \_ -> Time.every 33 <| always Next
         }

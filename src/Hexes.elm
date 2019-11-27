@@ -13,21 +13,24 @@ type alias GridOptions =
     , zPosition : Float
     , table : PermutationTable
     , speed : Float
+    , colourized : Bool
     }
 
 
 defaultOptions : PermutationTable -> GridOptions
 defaultOptions table =
-    { strength = 50
-    , cellsAcross = 15
-    , scale = 0.002
+    { strength = 100
+    , cellsAcross = 18
+    , scale = 0.001
     , zPosition = 0
-    , speed = 0.01
+    , speed = 0.0025
     , table = table
+    , colourized = True
     }
 
+
 permutedHex : ( Float, Float ) -> Float -> GridOptions -> Svg msg
-permutedHex ( posX, posY ) h {scale, strength, zPosition, table} =
+permutedHex ( posX, posY ) h { scale, strength, zPosition, table, colourized } =
     let
         pointsString =
             List.range 0 5
@@ -59,20 +62,25 @@ permutedHex ( posX, posY ) h {scale, strength, zPosition, table} =
         noise =
             noise3d table ((posX + h / 2) * scale) ((posY + h / 2) * scale) zPosition
 
-        colour =
-            "hsla("
-                ++ (String.fromFloat <| noise * pi * 57.29)
-                ++ ", 70%, 50%, "
-                ++ (String.fromFloat <| 0.5)
-                ++ ")"
+        colourAttrs =
+            if colourized then
+                [ fill <| "hsla("
+                    ++ (String.fromFloat <| noise * pi * 57.29)
+                    ++ ", 70%, 50%, "
+                    ++ (String.fromFloat <| noise * 0.5 + 0.5)
+                    ++ ")"
+                ]
+
+            else
+                [ stroke "#222", fill "transparent" ]
     in
     g []
         [ polygon
-            [ class "hex"
-            , points pointsString
-            , fill colour
-            , stroke colour
-            ]
+            ([ class "hex"
+             , points pointsString
+             ]
+                ++ colourAttrs
+            )
             []
         ]
 
